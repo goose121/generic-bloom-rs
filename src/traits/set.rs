@@ -17,7 +17,7 @@
 //! These traits describe different features of various types of
 //! backing storage for
 //! [`BloomFilter`](crate::BloomFilter)s. Implementations are provided
-//! for [`BitVec`]s, providing a binary Bloom filter, and for
+//! for [`BitBox`]es, providing a binary Bloom filter, and for
 //! `Box<[T]>` where `T` is a numeric type, providing a spectral Bloom
 //! filter which supports deletions.
 use bitvec::{boxed::BitBox, order::BitOrder, store::BitStore, vec::BitVec};
