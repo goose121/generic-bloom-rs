@@ -16,6 +16,12 @@
 name = "generic-bloom"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-or-later"
+keywords = ["bloom-filter", "bloom"]
+categories = ["data-structures"]
+authors = ["Morgan Hager <morgan.hager1@gmail.com>"]
+description = "A generic implementation of Bloom filters using traits"
+repository = "https://github.com/goose121/generic-bloom-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
