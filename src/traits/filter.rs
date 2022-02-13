@@ -88,7 +88,7 @@ where
     /// f1.insert(&32);
     ///
     /// let mut f2: SimpleBloomFilter<BitBox<usize, Lsb0>> =
-    ///     SimpleBloomFilter::with_hashers(f1.hashers().to_vec(), 20);
+    ///     SimpleBloomFilter::with_hashers(f1.hashers().clone(), 20);
     /// f2.insert(&39);
     ///
     /// assert!(f1.contains(&48));
@@ -123,7 +123,7 @@ where
     /// f1.insert(&32);
     ///
     /// let mut f2: SimpleBloomFilter<BitBox<usize, Lsb0>> =
-    ///     SimpleBloomFilter::with_hashers(f1.hashers().to_vec(), 20);
+    ///     SimpleBloomFilter::with_hashers(f1.hashers().clone(), 20);
     /// f2.insert(&32);
     /// f2.insert(&39);
     ///

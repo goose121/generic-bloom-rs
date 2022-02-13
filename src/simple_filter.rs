@@ -14,7 +14,7 @@
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hash, Hasher};
-use std::iter::FromIterator;
+use std::iter::{FromIterator, Extend};
 use crate::traits::set::*;
 use crate::traits::filter::*;
 use std::rc::Rc;
@@ -184,5 +184,21 @@ where
             .map(|i| self.set.query_count(i))
             .min()
             .unwrap()
+    }
+}
+
+impl<A: Hash, B, S, V> Extend<A> for SimpleBloomFilter<B, S, V>
+where
+    B: BloomSet,
+    S: BuildHasher,
+    V: AsRef<[S]>,
+{
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = A>
+    {
+        for val in iter {
+            self.insert(&val);
+        }
     }
 }
