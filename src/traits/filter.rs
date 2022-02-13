@@ -21,8 +21,10 @@ use crate::traits::set::*;
 pub trait BloomFilter {
     type Set: BloomSet;
     type Hasher: BuildHasher;
-    /// Returns the `BuildHasher`s used by this `BloomFilter`.
-    fn hashers(&self) -> &[Self::Hasher];
+
+    /// Gets a reference to the underlying counters used by this
+    /// `BloomFilter`.
+    fn counters(&self) -> &Self::Set;
 
     /// Inserts `val` into the set.
     fn insert<T: Hash>(&mut self, val: &T);
@@ -101,7 +103,8 @@ where
     /// assert!(f1.contains(&32));
     /// assert!(f1.contains(&39));
     /// ```
-    fn union(&mut self, other: &Self);
+    fn union<Other>(&mut self, other: &Other)
+        where Other: BinaryBloomFilter<Set = Self::Set, Hasher = Self::Hasher>;
 
     /// Keeps only values in `self` which are also in
     /// `other`. **`other` and `self` must have the same
@@ -138,7 +141,9 @@ where
     /// // May fail if 39 is a false positive
     /// assert!(!f1.contains(&39));
     /// ```
-    fn intersect(&mut self, other: &Self);
+    fn intersect<Other>(&mut self, other: &Other)
+    where
+        Other: BinaryBloomFilter<Set = Self::Set, Hasher = Self::Hasher>;
 }
 
 /// Trait for types which act as Bloom filters and support

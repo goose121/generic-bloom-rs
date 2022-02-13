@@ -14,30 +14,39 @@
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hash, Hasher};
-use std::iter::IntoIterator;
+use std::iter::FromIterator;
 use crate::traits::set::*;
 use crate::traits::filter::*;
+use std::rc::Rc;
+use std::marker::PhantomData;
 
 #[derive(Debug, Clone, PartialEq)]
 /// A Bloom filter with underlying set `B` and [`BuildHasher`] type
-/// `S`. The supported operations are based on the traits implemented
+/// `S`, the `BuildHasher`s being held in a collection of type
+/// `V`. The supported operations are based on the traits implemented
 /// by `B`.
-pub struct SimpleBloomFilter<B, S = RandomState> {
-    hashers: Vec<S>,
+pub struct SimpleBloomFilter<B, S = RandomState, V = Rc<[S]>>
+where
+    V: AsRef<[S]>,
+{
+    hashers: V,
     set: B,
+    _phantom: PhantomData<S>
 }
 
-impl<B, S> SimpleBloomFilter<B, S>
+impl<B, S, V> SimpleBloomFilter<B, S, V>
 where
     B: BloomSet,
     S: BuildHasher,
+    V: AsRef<[S]>,
 {
     /// Creates a new `SimpleBloomFilter` with a specified number of counters
     /// and [`BuildHasher`]s. The `BuildHasher`s will be initialized by
     /// [`default`](Default::default).
-    pub fn new(n_hashers: usize, n_counters: usize) -> SimpleBloomFilter<B, S>
+    pub fn new(n_hashers: usize, n_counters: usize) -> Self
     where
         S: Default,
+        V: FromIterator<S>,
     {
         SimpleBloomFilter::with_hashers(
             std::iter::repeat_with(|| S::default())
@@ -49,20 +58,31 @@ where
 
     /// Creates a new `SimpleBloomFilter` with specified `BuildHasher`s and a
     /// specified number of counters.
-    pub fn with_hashers(hashers: Vec<S>, n_counters: usize) -> SimpleBloomFilter<B, S> {
-        debug_assert!(hashers.len() > 0);
+    pub fn with_hashers(hashers: V, n_counters: usize) -> Self {
+        debug_assert!(hashers.as_ref().len() > 0);
         SimpleBloomFilter {
-            hashers: hashers.into_iter().collect(),
+            hashers: hashers,
             set: B::new(n_counters),
+            _phantom: PhantomData
         }
     }
 
+    /// Returns the hashers and bit set of the filter.
+    pub fn into_inner(self) -> (V, B) {
+        (self.hashers, self.set)
+    }
+
+    pub fn hashers(&self) -> &V {
+        &self.hashers
+    }
+
     fn hash_indices<'a, T: Hash>(
-        hashers: &'a Vec<S>,
+        hashers: &'a V,
         set_size: usize,
         val: &'a T,
-    ) -> impl Iterator<Item = usize> + 'a {
-        hashers.iter().map(move |b| {
+    ) -> impl Iterator<Item = usize> + 'a
+    where S: 'a {
+        hashers.as_ref().iter().map(move |b| {
             let mut h = b.build_hasher();
             val.hash(&mut h);
             h.finish() as usize % set_size
@@ -70,16 +90,17 @@ where
     }
 }
 
-impl<B, S> BloomFilter for SimpleBloomFilter<B, S>
+impl<B, S, V> BloomFilter for SimpleBloomFilter<B, S, V>
 where
     B: BloomSet,
     S: BuildHasher,
+    V: AsRef<[S]>,
 {
     type Set = B;
     type Hasher = S;
 
-    fn hashers(&self) -> &[S] {
-        &*self.hashers
+    fn counters(&self) -> &B {
+        return &self.set;
     }
 
     fn insert<T: Hash>(&mut self, val: &T) {
@@ -103,10 +124,11 @@ where
     }
 }
 
-impl<B, S> BloomFilterDelete for SimpleBloomFilter<B, S>
+impl<B, S, V> BloomFilterDelete for SimpleBloomFilter<B, S, V>
 where
     B: BloomSetDelete,
     S: BuildHasher,
+    V: AsRef<[S]>,
 {
     fn remove<T: Hash>(&mut self, val: &T) {
         for i in Self::hash_indices(&self.hashers, self.set.size(), val) {
@@ -115,25 +137,33 @@ where
     }
 }
 
-impl<B, S> BinaryBloomFilter for SimpleBloomFilter<B, S>
+impl<B, S, V> BinaryBloomFilter for SimpleBloomFilter<B, S, V>
 where
     B: BinaryBloomSet,
     S: BuildHasher,
+    V: AsRef<[S]>,
 {
-    fn union(&mut self, other: &SimpleBloomFilter<B, S>) {
-        self.set.union(&other.set);
+    fn union<Other>(&mut self, other: &Other)
+    where
+        Other: BinaryBloomFilter<Set = Self::Set, Hasher = Self::Hasher>
+    {
+        self.set.union(&other.counters());
     }
 
-    fn intersect(&mut self, other: &SimpleBloomFilter<B, S>) {
-        self.set.intersect(&other.set);
+    fn intersect<Other>(&mut self, other: &Other)
+    where
+        Other: BinaryBloomFilter<Set = Self::Set, Hasher = Self::Hasher>
+    {
+        self.set.intersect(&other.counters());
     }
 }
 
-impl<B, S> SpectralBloomFilter for SimpleBloomFilter<B, S>
+impl<B, S, V> SpectralBloomFilter for SimpleBloomFilter<B, S, V>
 where
     B: SpectralBloomSet,
     B::Count: Ord,
     S: BuildHasher,
+    V: AsRef<[S]>,
 {
     fn contains_more_than<T: Hash>(
         &self,
